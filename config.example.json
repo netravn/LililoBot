@@ -1,0 +1,38 @@
+{
+  "onebot": {
+    "host": "127.0.0.1",
+    "port": 8300,
+    "path": "/ws",
+    "accessToken": "change-me"
+  },
+  "webui": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8400,
+    "accessToken": ""
+  },
+  "qq": {
+    "adminUsers": [10001],
+    "allowPrivate": true,
+    "privateAllowlist": [10001],
+    "allowedGroups": [20001],
+    "groupKeywords": ["莉莉洛", "Lililo"],
+    "quoteReply": true,
+    "mentionReplyInGroups": true
+  },
+  "llm": {
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKey": "",
+    "model": "gpt-4o-mini",
+    "temperature": 0.7,
+    "timeoutMs": 120000
+  },
+  "bot": {
+    "name": "莉莉洛",
+    "systemPromptFile": "prompts/system.md",
+    "maxHistoryTurns": 20
+  },
+  "storage": {
+    "sessionsDir": "data/sessions"
+  }
+}

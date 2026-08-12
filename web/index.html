@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="LililoBot 本地控制台" />
+    <title>QQ Agent Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <header class="topbar">
+      <a class="brand" href="#overview" aria-label="返回概览">
+        <span class="brand-mark">Q</span>
+        <span><strong>QQ Agent</strong><small>Local control plane</small></span>
+      </a>
+      <nav aria-label="控制台导航">
+        <a href="#chat">对话</a>
+        <a href="#overview">概览</a>
+        <a href="#sessions">会话</a>
+        <a href="#logs">日志</a>
+        <a href="#configuration">配置</a>
+      </nav>
+      <button class="ghost-button" id="refresh-button" type="button">刷新</button>
+    </header>
+
+    <main>
+      <section class="hero" id="overview">
+        <div>
+          <p class="eyebrow">SYSTEM OVERVIEW</p>
+          <h1><span id="bot-name">QQ Agent</span> 正在待命</h1>
+          <p class="hero-copy">查看 OneBot 连接、模型状态、会话和实时运行日志。</p>
+        </div>
+        <div class="health-pill" id="health-pill"><span></span><b>正在连接</b></div>
+      </section>
+
+      <section class="auth-panel hidden" id="auth-panel" aria-live="polite">
+        <div>
+          <strong>控制台需要访问令牌</strong>
+          <p>令牌只保存在当前浏览器标签页中。</p>
+        </div>
+        <form id="auth-form">
+          <label class="sr-only" for="token-input">WebUI 访问令牌</label>
+          <input id="token-input" type="password" autocomplete="off" placeholder="输入 WebUI Token" />
+          <button type="submit">连接控制台</button>
+        </form>
+      </section>
+
+      <section class="panel chat-panel" id="chat">
+        <div class="chat-header">
+          <div class="chat-identity">
+            <img src="/avatar.png" alt="莉莉洛头像" />
+            <div><p class="eyebrow">LOCAL CONVERSATION</p><h2>和莉莉洛聊聊</h2><small id="chat-session-label">网页独立会话</small></div>
+          </div>
+          <button class="ghost-button" id="new-chat" type="button">新对话</button>
+        </div>
+        <div class="chat-messages" id="chat-messages" aria-live="polite">
+          <div class="chat-empty"><strong>本地对话已经准备好</strong><span>这里的上下文不会进入 QQ 私聊或群聊。</span></div>
+        </div>
+        <form class="chat-composer" id="chat-form">
+          <label class="sr-only" for="chat-input">给莉莉洛发送消息</label>
+          <textarea id="chat-input" rows="1" maxlength="20000" placeholder="输入消息，Enter 发送，Shift + Enter 换行"></textarea>
+          <button id="send-chat" type="submit">发送</button>
+        </form>
+      </section>
+
+      <section class="stats-grid" aria-label="运行指标">
+        <article class="stat-card">
+          <span class="stat-label">OneBot</span>
+          <strong id="onebot-state">—</strong>
+          <small id="onebot-endpoint">等待状态</small>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">在线账号</span>
+          <strong id="account-count">—</strong>
+          <small id="account-list">尚未连接</small>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">活跃会话</span>
+          <strong id="session-count">—</strong>
+          <small>持久化上下文</small>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">运行时间</span>
+          <strong id="uptime">—</strong>
+          <small id="node-version">Node.js</small>
+        </article>
+      </section>
+
+      <section class="split-grid">
+        <article class="panel model-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">MODEL ROUTE</p><h2>模型服务</h2></div>
+            <span class="tag" id="model-configured">检查中</span>
+          </div>
+          <div class="model-name" id="model-name">—</div>
+          <p id="model-base-url">读取配置中</p>
+        </article>
+        <article class="panel accounts-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">TRANSPORT</p><h2>QQ 连接</h2></div>
+          </div>
+          <div class="account-chips" id="account-chips"><span class="empty-chip">暂无在线账号</span></div>
+          <p class="muted">NapCat 通过反向 WebSocket 主动连接本服务。</p>
+        </article>
+      </section>
+
+      <section class="panel section-panel" id="sessions">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CONVERSATIONS</p><h2>会话管理</h2></div>
+          <span class="muted" id="sessions-updated">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>范围</th><th>会话</th><th>消息</th><th>更新时间</th><th><span class="sr-only">操作</span></th></tr></thead>
+            <tbody id="session-rows"><tr><td colspan="5" class="empty-state">正在加载会话</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel section-panel log-panel" id="logs">
+        <div class="panel-heading">
+          <div><p class="eyebrow">LIVE EVENTS</p><h2>实时日志</h2></div>
+          <div class="toolbar">
+            <label for="log-level">级别</label>
+            <select id="log-level"><option value="all">全部</option><option value="info">信息</option><option value="warn">警告</option><option value="error">错误</option></select>
+            <button class="ghost-button" id="clear-logs" type="button">清屏</button>
+          </div>
+        </div>
+        <div class="log-stream" id="log-stream" role="log" aria-live="polite"></div>
+      </section>
+
+      <section class="panel section-panel" id="configuration">
+        <div class="panel-heading">
+          <div><p class="eyebrow">READ-ONLY CONFIG</p><h2>生效配置</h2></div>
+          <span class="tag neutral">密钥已脱敏</span>
+        </div>
+        <div class="config-grid" id="config-grid"><p class="empty-state">正在读取配置</p></div>
+      </section>
+    </main>
+
+    <dialog id="session-dialog">
+      <div class="dialog-heading">
+        <div><p class="eyebrow">SESSION DETAIL</p><h2 id="dialog-title">会话详情</h2></div>
+        <button class="icon-button" id="close-dialog" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="conversation" id="conversation"></div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

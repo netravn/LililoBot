@@ -1,0 +1,21 @@
+[Unit]
+Description=NapCat QQ (headless Xvfb)
+Documentation=https://napneko.github.io/guide/boot/Shell-Linux-SemiAuto
+Wants=network-online.target lililo-bot.service
+After=network-online.target lililo-bot.service
+
+[Service]
+Type=simple
+User=@BOT_USER@
+Group=@BOT_GROUP@
+WorkingDirectory=@BOT_HOME@
+Environment=HOME=@BOT_HOME@
+ExecStart=/usr/bin/xvfb-run -a /usr/bin/qq --no-sandbox -q @QQ_NUMBER@
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+{
+  "name": "lililo-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LililoBot — an original AI companion bot with QQ, WebUI and local chat support",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "chat": "node src/cli-chat.js",
+    "ask": "node src/cli-chat.js --ask",
+    "test": "node --test",
+    "check": "node --check src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

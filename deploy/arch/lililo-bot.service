@@ -1,0 +1,26 @@
+[Unit]
+Description=LililoBot AI Companion
+Documentation=file://@PROJECT_DIR@/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=@BOT_USER@
+Group=@BOT_GROUP@
+WorkingDirectory=@PROJECT_DIR@
+EnvironmentFile=-/etc/lililo-bot.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node @PROJECT_DIR@/src/index.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@PROJECT_DIR@/data
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
