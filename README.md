@@ -11,6 +11,7 @@
 - 每个 QQ 用户拥有独立的一对一私聊上下文
 - 同一会话串行、不同会话并行
 - OpenAI Chat Completions 兼容接口
+- 默认使用 OpenCode Zen 的限时免费 DeepSeek 模型
 - JSON 文件持久化会话历史和历史窗口裁剪
 - 引用回复和群聊 `@发送者`
 - `/ping`、`/help`、`/reset`
@@ -48,17 +49,19 @@ cp config.example.json config.json
 
 - 把 `adminUsers`、`privateAllowlist` 和 `allowedGroups` 换成真实 QQ 号/群号
 - 设置 `onebot.accessToken`
-- 设置 `llm.baseUrl`、`llm.apiKey` 和 `llm.model`
+- 默认配置可以直接使用；如需更稳定的服务，可替换 `llm.baseUrl`、`llm.apiKey` 和 `llm.model`
 
 密钥也可以只放环境变量：
 
 ```bash
 export ONEBOT_ACCESS_TOKEN='...'
-export OPENAI_API_KEY='...'
-export OPENAI_BASE_URL='https://api.openai.com/v1'
-export OPENAI_MODEL='gpt-4o-mini'
+export OPENAI_API_KEY='public'
+export OPENAI_BASE_URL='https://opencode.ai/zen/v1'
+export OPENAI_MODEL='deepseek-v4-flash-free'
 npm start
 ```
+
+默认模型通过 OpenCode Zen 的 OpenAI 兼容接口提供，无需申请 DeepSeek 官方 API Key。免费模型属于第三方限时公共服务，可能调整、限流或下线；生产部署建议在 `config.json` 或上述环境变量中配置自己的模型服务。
 
 启动后打开：
 
