@@ -19,7 +19,13 @@ async function api(path, options = {}) {
     $("#auth-panel").classList.remove("hidden");
     throw new Error("控制台访问令牌无效");
   }
-  if (!response.ok) throw new Error(`请求失败 HTTP ${response.status}`);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const error = new Error(body.message || body.error || `请求失败 HTTP ${response.status}`);
+    error.status = response.status;
+    error.code = body.error;
+    throw error;
+  }
   $("#auth-panel").classList.add("hidden");
   return response.json();
 }
@@ -175,14 +181,54 @@ function configRows(rows) {
 function renderConfig(config) {
   text("#bot-name", config.bot.name);
   text("#model-base-url", config.llm.baseUrl);
+  fillModelSettings(config.llm);
   const blocks = [
     ["OneBot", [["监听", `${config.onebot.host}:${config.onebot.port}${config.onebot.path}`], ["Token", config.onebot.accessTokenConfigured ? "已配置" : "未配置"]]],
     ["QQ 策略", [["管理员", config.qq.adminUsers.join(", ") || "无"], ["私聊白名单", config.qq.privateAllowlist.join(", ") || "全部"], ["群白名单", config.qq.allowedGroups.join(", ") || "无"], ["触发词", config.qq.groupKeywords.join(", ") || "无"]]],
-    ["模型", [["模型", config.llm.model], ["Temperature", config.llm.temperature], ["API Key", config.llm.apiKeyConfigured ? "已配置" : "未配置"], ["超时", `${config.llm.timeoutMs} ms`]]],
   ];
   $("#config-grid").innerHTML = blocks
     .map(([title, rows]) => `<article class="config-block"><h3>${title}</h3>${configRows(rows)}</article>`)
     .join("");
+}
+
+function fillModelSettings(llm) {
+  $("#model-base-url-input").value = llm.baseUrl;
+  $("#model-id-input").value = llm.model;
+  $("#model-temperature-input").value = llm.temperature;
+  $("#model-timeout-input").value = llm.timeoutMs;
+  $("#model-api-key-input").value = "";
+  $("#model-api-key-input").placeholder = llm.apiKeyConfigured ? "留空则保留当前 Key" : "输入 API Key";
+  $("#clear-model-api-key").checked = false;
+  const managed = llm.managedByEnvironment || {};
+  $("#model-base-url-input").disabled = Boolean(managed.baseUrl);
+  $("#model-id-input").disabled = Boolean(managed.model);
+  $("#model-api-key-input").disabled = Boolean(managed.apiKey);
+  $("#clear-model-api-key").disabled = Boolean(managed.apiKey);
+  $("#base-url-help").textContent = managed.baseUrl ? "由 OPENAI_BASE_URL 环境变量控制" : "OpenAI Chat Completions 兼容地址";
+  $("#api-key-help").textContent = managed.apiKey
+    ? "由 OPENAI_API_KEY 环境变量控制"
+    : llm.apiKeyConfigured ? "已配置；当前 Key 不会回显" : "尚未配置";
+}
+
+function modelSettingsPayload() {
+  return {
+    baseUrl: $("#model-base-url-input").value.trim(),
+    model: $("#model-id-input").value.trim(),
+    apiKey: $("#model-api-key-input").value,
+    clearApiKey: $("#clear-model-api-key").checked,
+    temperature: Number($("#model-temperature-input").value),
+    timeoutMs: Number($("#model-timeout-input").value),
+  };
+}
+
+function setModelSettingsBusy(busy, status = "") {
+  $("#test-model-settings").disabled = busy;
+  $("#save-model-settings").disabled = busy;
+  if (status) {
+    const node = $("#model-settings-status");
+    node.textContent = status;
+    node.className = "settings-status";
+  }
 }
 
 function renderLogs() {
@@ -276,6 +322,49 @@ $("#new-chat").addEventListener("click", () => {
   renderChat();
   $("#chat-input").focus();
   showToast("已创建新的网页会话");
+});
+
+$("#test-model-settings").addEventListener("click", async () => {
+  if (!$("#model-settings-form").reportValidity()) return;
+  setModelSettingsBusy(true, "正在连接模型服务…");
+  const status = $("#model-settings-status");
+  try {
+    const result = await api("/api/model-settings/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(modelSettingsPayload()),
+    });
+    status.textContent = `连接成功 · ${result.model}`;
+    status.className = "settings-status success";
+  } catch (error) {
+    status.textContent = `连接失败：${error.message}`;
+    status.className = "settings-status error";
+  } finally {
+    setModelSettingsBusy(false);
+  }
+});
+
+$("#model-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setModelSettingsBusy(true, "正在保存并应用…");
+  const status = $("#model-settings-status");
+  try {
+    await api("/api/model-settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(modelSettingsPayload()),
+    });
+    const config = await api("/api/config");
+    renderConfig(config);
+    status.textContent = "已保存并立即生效";
+    status.className = "settings-status success";
+    await refreshLiveData();
+  } catch (error) {
+    status.textContent = `保存失败：${error.message}`;
+    status.className = "settings-status error";
+  } finally {
+    setModelSettingsBusy(false);
+  }
 });
 
 $("#session-rows").addEventListener("click", async (event) => {

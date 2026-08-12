@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="LililoBot 本地控制台" />
     <title>莉莉洛 · LililoBot</title>
-    <link rel="stylesheet" href="/styles.css?v=2" />
+    <link rel="stylesheet" href="/styles.css?v=3" />
   </head>
   <body>
     <div class="ambient ambient-a"></div>
@@ -137,8 +137,45 @@
 
       <section class="panel section-panel" id="configuration">
         <div class="panel-heading">
-          <div><p class="eyebrow">READ-ONLY CONFIG</p><h2>生效配置</h2></div>
+          <div><p class="eyebrow">MODEL & RUNTIME</p><h2>模型设置</h2></div>
           <span class="tag neutral">密钥已脱敏</span>
+        </div>
+        <form class="model-settings" id="model-settings-form">
+          <label class="field wide">
+            <span>API URL</span>
+            <input id="model-base-url-input" name="baseUrl" type="url" required autocomplete="url" placeholder="https://opencode.ai/zen/v1" />
+            <small id="base-url-help">OpenAI Chat Completions 兼容地址</small>
+          </label>
+          <label class="field">
+            <span>模型</span>
+            <input id="model-id-input" name="model" type="text" required maxlength="200" autocomplete="off" placeholder="deepseek-v4-flash-free" />
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input id="model-api-key-input" name="apiKey" type="password" autocomplete="new-password" placeholder="留空则保留当前 Key" />
+            <small id="api-key-help">当前 Key 不会回显</small>
+          </label>
+          <label class="field compact">
+            <span>Temperature</span>
+            <input id="model-temperature-input" name="temperature" type="number" min="0" max="2" step="0.1" required />
+          </label>
+          <label class="field compact">
+            <span>超时（毫秒）</span>
+            <input id="model-timeout-input" name="timeoutMs" type="number" min="1000" max="600000" step="1000" required />
+          </label>
+          <label class="check-field">
+            <input id="clear-model-api-key" type="checkbox" />
+            <span>清除已保存的 API Key</span>
+          </label>
+          <div class="settings-actions">
+            <span class="settings-status" id="model-settings-status" aria-live="polite">修改后可先测试连接</span>
+            <button class="ghost-button" id="test-model-settings" type="button">测试连接</button>
+            <button id="save-model-settings" type="submit">保存并应用</button>
+          </div>
+        </form>
+        <div class="configuration-divider"></div>
+        <div class="panel-heading compact-heading">
+          <div><p class="eyebrow">EFFECTIVE CONFIG</p><h3>其他生效配置</h3></div>
         </div>
         <div class="config-grid" id="config-grid"><p class="empty-state">正在读取配置</p></div>
       </section>
@@ -153,6 +190,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/app.js?v=2"></script>
+    <script type="module" src="/app.js?v=3"></script>
   </body>
 </html>

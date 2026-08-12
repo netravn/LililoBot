@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
+import { OpenAiClient, ModelRequestError } from "../services/openai-client.js";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -73,6 +74,11 @@ function publicConfig(config) {
       temperature: config.llm.temperature,
       timeoutMs: config.llm.timeoutMs,
       apiKeyConfigured: Boolean(config.llm.apiKey),
+      managedByEnvironment: {
+        baseUrl: Boolean(process.env.OPENAI_BASE_URL),
+        apiKey: Boolean(process.env.OPENAI_API_KEY),
+        model: Boolean(process.env.OPENAI_MODEL),
+      },
     },
     webui: {
       host: config.webui.host,
@@ -80,6 +86,42 @@ function publicConfig(config) {
       accessTokenConfigured: Boolean(config.webui.accessToken),
     },
   };
+}
+
+function modelSettings(body, current) {
+  const baseUrl = String(body.baseUrl ?? current.baseUrl).trim().replace(/\/$/, "");
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(baseUrl);
+  } catch {
+    throw Object.assign(new Error("API URL 格式无效"), { statusCode: 400 });
+  }
+  if (!["http:", "https:"].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) {
+    throw Object.assign(new Error("API URL 必须是无账号信息的 HTTP(S) 地址"), { statusCode: 400 });
+  }
+  const model = String(body.model ?? current.model).trim();
+  if (!model || model.length > 200) {
+    throw Object.assign(new Error("模型名称必须包含 1-200 个字符"), { statusCode: 400 });
+  }
+  const temperature = Number(body.temperature ?? current.temperature);
+  if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
+    throw Object.assign(new Error("Temperature 必须在 0-2 之间"), { statusCode: 400 });
+  }
+  const timeoutMs = Number(body.timeoutMs ?? current.timeoutMs);
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 600000) {
+    throw Object.assign(new Error("超时时间必须在 1000-600000 ms 之间"), { statusCode: 400 });
+  }
+  let apiKey = current.apiKey;
+  if (body.clearApiKey === true) apiKey = "";
+  else if (typeof body.apiKey === "string" && body.apiKey.trim()) apiKey = body.apiKey.trim();
+  return { baseUrl, apiKey, model, temperature, timeoutMs };
+}
+
+function modelErrorPayload(error) {
+  if (error instanceof ModelRequestError) {
+    return { status: error.statusCode, body: { error: error.code, message: error.message } };
+  }
+  return { status: 502, body: { error: "model_request_failed", message: "模型请求失败" } };
 }
 
 export class WebUiServer {
@@ -156,7 +198,8 @@ export class WebUiServer {
         return json(response, 200, { answer: result.answer, channel, sessionId });
       } catch (error) {
         this.logger.error("webui", `chat failed session=${key}`, error);
-        return json(response, 502, { error: "model_request_failed" });
+        const failure = modelErrorPayload(error);
+        return json(response, failure.status, failure.body);
       }
     }
     const chatMatch = url.pathname.match(/^\/api\/chat\/(web|cli)\/([a-zA-Z0-9_-]{1,64})$/);
@@ -187,6 +230,41 @@ export class WebUiServer {
     }
     if (request.method === "GET" && url.pathname === "/api/config") {
       return json(response, 200, publicConfig(this.config));
+    }
+    if (request.method === "PUT" && url.pathname === "/api/model-settings") {
+      const body = await readJson(request);
+      const next = modelSettings(body, this.config.llm);
+      const managed = publicConfig(this.config).llm.managedByEnvironment;
+      if (managed.baseUrl && next.baseUrl !== this.config.llm.baseUrl) {
+        return json(response, 409, { error: "managed_by_environment", message: "API URL 由 OPENAI_BASE_URL 控制" });
+      }
+      if (managed.model && next.model !== this.config.llm.model) {
+        return json(response, 409, { error: "managed_by_environment", message: "模型由 OPENAI_MODEL 控制" });
+      }
+      if (managed.apiKey && next.apiKey !== this.config.llm.apiKey) {
+        return json(response, 409, { error: "managed_by_environment", message: "API Key 由 OPENAI_API_KEY 控制" });
+      }
+      await this.saveModelSettings(next, managed);
+      Object.assign(this.config.llm, next);
+      if (this.agent.llm?.config) Object.assign(this.agent.llm.config, next);
+      this.logger.info("webui", `model settings updated model=${next.model} base_url=${next.baseUrl}`);
+      return json(response, 200, { ok: true, llm: publicConfig(this.config).llm });
+    }
+    if (request.method === "POST" && url.pathname === "/api/model-settings/test") {
+      const body = await readJson(request);
+      const candidate = modelSettings(body, this.config.llm);
+      try {
+        const answer = await new OpenAiClient(candidate).chat(
+          "Respond with exactly OK.",
+          [],
+          "Connection test",
+        );
+        return json(response, 200, { ok: true, model: candidate.model, answer: answer.slice(0, 80) });
+      } catch (error) {
+        this.logger.warn("webui", `model connection test failed model=${candidate.model}`, error);
+        const failure = modelErrorPayload(error);
+        return json(response, failure.status, failure.body);
+      }
     }
     if (request.method === "GET" && url.pathname === "/api/sessions") {
       return json(response, 200, { sessions: await this.store.list() });
@@ -257,6 +335,20 @@ export class WebUiServer {
       "cache-control": "no-cache",
     });
     response.end(content);
+  }
+
+  async saveModelSettings(settings, managed = {}) {
+    const configPath = this.config.configPath ?? path.join(this.config.projectRoot, "config.json");
+    const raw = JSON.parse(await fs.readFile(configPath, "utf8"));
+    const persisted = { ...(raw.llm ?? {}) };
+    for (const key of ["baseUrl", "apiKey", "model", "temperature", "timeoutMs"]) {
+      if (!managed[key]) persisted[key] = settings[key];
+    }
+    raw.llm = persisted;
+    const temporary = `${configPath}.${process.pid}.tmp`;
+    await fs.writeFile(temporary, `${JSON.stringify(raw, null, 2)}\n`, { mode: 0o600 });
+    await fs.chmod(temporary, 0o600);
+    await fs.rename(temporary, configPath);
   }
 
   async stop() {

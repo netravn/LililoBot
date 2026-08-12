@@ -8,6 +8,7 @@ import { Logger } from "../src/core/logger.js";
 import { AgentRuntime } from "../src/core/agent-runtime.js";
 import { ConversationStore } from "../src/store/conversation-store.js";
 import { WebUiServer } from "../src/webui/server.js";
+import { ModelRequestError } from "../src/services/openai-client.js";
 
 test("WebUI protects APIs, redacts secrets, and manages sessions", async () => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "qq-agent-webui-"));
@@ -31,6 +32,8 @@ test("WebUI protects APIs, redacts secrets, and manages sessions", async () => {
     llm: { baseUrl: "https://example.test/v1", apiKey: "llm-secret", model: "test-model", temperature: 0.7, timeoutMs: 1000 },
     bot: { name: "Test Bot", maxHistoryTurns: 10 },
   };
+  config.configPath = path.join(temporary, "config.json");
+  await fs.writeFile(config.configPath, `${JSON.stringify({ llm: config.llm }, null, 2)}\n`);
   const onebot = {
     status: () => ({ listening: true, host: "127.0.0.1", port: 8300, path: "/ws", connectedAccounts: ["42"] }),
   };
@@ -59,6 +62,26 @@ test("WebUI protects APIs, redacts secrets, and manages sessions", async () => {
     assert.equal(publicConfig.llm.apiKeyConfigured, true);
     assert.equal(publicConfig.onebot.accessToken, undefined);
 
+    const updatedSettings = await fetch(`${baseUrl}/api/model-settings`, {
+      method: "PUT",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({
+        baseUrl: "https://new.example.test/v1/",
+        model: "new-model",
+        apiKey: "new-secret",
+        temperature: 0.4,
+        timeoutMs: 5000,
+      }),
+    }).then((response) => response.json());
+    assert.equal(updatedSettings.ok, true);
+    assert.equal(updatedSettings.llm.baseUrl, "https://new.example.test/v1");
+    assert.equal(updatedSettings.llm.apiKey, undefined);
+    assert.equal(config.llm.model, "new-model");
+    const savedConfig = JSON.parse(await fs.readFile(config.configPath, "utf8"));
+    assert.equal(savedConfig.llm.apiKey, "new-secret");
+    assert.equal(savedConfig.llm.model, "new-model");
+    assert.equal((await fs.stat(config.configPath)).mode & 0o777, 0o600);
+
     const chatResponse = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: { ...headers, "content-type": "application/json" },
@@ -71,6 +94,20 @@ test("WebUI protects APIs, redacts secrets, and manages sessions", async () => {
     assert.equal((await fetch(`${baseUrl}/api/chat/web/browser-1`, { method: "DELETE", headers })).status, 200);
     const emptyChat = await fetch(`${baseUrl}/api/chat/web/browser-1`, { headers }).then((response) => response.json());
     assert.equal(emptyChat.messages.length, 0);
+
+    llm.chat = async () => {
+      throw new ModelRequestError("model_rate_limited", 429, "模型服务暂时繁忙，请稍后再试");
+    };
+    const limited = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({ channel: "web", sessionId: "limited", message: "你好" }),
+    });
+    assert.equal(limited.status, 429);
+    assert.deepEqual(await limited.json(), {
+      error: "model_rate_limited",
+      message: "模型服务暂时繁忙，请稍后再试",
+    });
 
     const sessions = await fetch(`${baseUrl}/api/sessions`, { headers }).then((response) => response.json());
     assert.equal(sessions.sessions.length, 1);

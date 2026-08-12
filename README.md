@@ -23,6 +23,8 @@
 - 会话查看与重置
 - SSE 实时日志
 - 脱敏配置查看
+- WebUI 修改模型 API URL、模型和 API Key，保存后热更新
+- 模型连接测试与 401、429、超时等错误提示
 
 ## 架构
 
@@ -70,6 +72,8 @@ http://127.0.0.1:8400
 ```
 
 WebUI 默认只监听本机。如果把 `webui.host` 改成 `0.0.0.0`，必须同时设置长随机的 `webui.accessToken` 或环境变量 `WEBUI_ACCESS_TOKEN`。控制台不会返回模型 API Key 或 OneBot Token 明文。
+
+“模型设置”可以修改 OpenAI 兼容 API URL、模型、API Key、Temperature 和超时，并在保存前测试连接。API Key 只可写入，不会从服务端回显；留空会保留当前 Key。保存内容立即用于后续对话，同时写入已被 Git 忽略的 `config.json`。如果某项由 `OPENAI_*` 环境变量控制，页面会将其标记为只读。
 
 控制台首页可以直接和莉莉洛对话。网页使用独立的 `local:web:<会话ID>` 上下文，不会读取或写入 QQ 会话。点击“新对话”会创建新的网页会话，旧会话仍可在会话管理中查看或重置。
 

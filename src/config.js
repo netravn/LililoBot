@@ -82,5 +82,5 @@ export function loadConfig(projectRoot = process.cwd()) {
   bot.systemPromptFile = path.resolve(projectRoot, bot.systemPromptFile);
   storage.sessionsDir = path.resolve(projectRoot, storage.sessionsDir);
 
-  return { ...config, onebot, webui, qq, llm, bot, storage, projectRoot };
+  return { ...config, onebot, webui, qq, llm, bot, storage, projectRoot, configPath };
 }
