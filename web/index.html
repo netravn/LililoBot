@@ -6,14 +6,14 @@
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="LililoBot 本地控制台" />
     <title>莉莉洛 · LililoBot</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=2" />
   </head>
   <body>
     <div class="ambient ambient-a"></div>
     <div class="ambient ambient-b"></div>
     <header class="topbar">
       <a class="brand" href="#overview" aria-label="返回概览">
-        <span class="brand-portrait"><img src="/avatar.png" alt="" /></span>
+        <span class="brand-portrait"><img src="/avatar.png" alt="" width="52" height="52" /></span>
         <span class="brand-copy">
           <span class="brand-name"><strong>莉莉洛</strong><i aria-hidden="true"></i><em>LililoBot</em></span>
           <small>Rosenfeld House · QQ Companion</small>
@@ -54,7 +54,7 @@
       <section class="panel chat-panel" id="chat">
         <div class="chat-header">
           <div class="chat-identity">
-            <img src="/avatar.png" alt="莉莉洛头像" />
+            <img src="/avatar.png" alt="莉莉洛头像" width="52" height="52" />
             <div><p class="eyebrow">LOCAL CONVERSATION</p><h2>和莉莉洛聊聊</h2><small id="chat-session-label">网页独立会话</small></div>
           </div>
           <button class="ghost-button" id="new-chat" type="button">新对话</button>
@@ -153,6 +153,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="/app.js?v=2"></script>
   </body>
 </html>

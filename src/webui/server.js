@@ -254,7 +254,7 @@ export class WebUiServer {
     const content = await fs.readFile(path.join(this.publicDir, name));
     response.writeHead(200, {
       "content-type": MIME_TYPES[path.extname(name)] ?? "application/octet-stream",
-      "cache-control": name === "index.html" ? "no-cache" : "public, max-age=300",
+      "cache-control": "no-cache",
     });
     response.end(content);
   }

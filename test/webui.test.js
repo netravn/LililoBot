@@ -46,6 +46,9 @@ test("WebUI protects APIs, redacts secrets, and manages sessions", async () => {
   await once(server, "listening");
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   try {
+    const page = await fetch(`${baseUrl}/`);
+    assert.equal(page.status, 200);
+    assert.equal(page.headers.get("cache-control"), "no-cache");
     assert.equal((await fetch(`${baseUrl}/api/status`)).status, 401);
     const headers = { authorization: "Bearer web-secret" };
     const status = await fetch(`${baseUrl}/api/status`, { headers }).then((response) => response.json());
