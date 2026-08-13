@@ -85,6 +85,35 @@ function publicConfig(config) {
       port: config.webui.port,
       accessTokenConfigured: Boolean(config.webui.accessToken),
     },
+    observation: { ...config.observation },
+  };
+}
+
+function observationSettings(body, current) {
+  const enabled = body.enabled === undefined ? current.enabled : body.enabled === true;
+  const allGroups = body.allGroups === undefined ? current.allGroups : body.allGroups === true;
+  const groups = body.groups === undefined
+    ? current.groups
+    : [...new Set((Array.isArray(body.groups) ? body.groups : String(body.groups).split(/[\s,，]+/))
+      .map(String).map((item) => item.trim()).filter(Boolean))];
+  if (groups.some((id) => !/^\d{1,20}$/.test(id))) {
+    throw Object.assign(new Error("群号必须是 1-20 位数字"), { statusCode: 400 });
+  }
+  const integer = (key, minimum, maximum) => {
+    const value = Number(body[key] ?? current[key]);
+    if (!Number.isInteger(value) || value < minimum || value > maximum) {
+      throw Object.assign(new Error(`${key} 必须在 ${minimum}-${maximum} 之间`), { statusCode: 400 });
+    }
+    return value;
+  };
+  return {
+    enabled,
+    allGroups,
+    groups,
+    analysisIntervalMinutes: integer("analysisIntervalMinutes", 5, 10080),
+    retentionDays: integer("retentionDays", 1, 3650),
+    minMessages: integer("minMessages", 1, 10000),
+    maxMessagesPerAnalysis: integer("maxMessagesPerAnalysis", 10, 5000),
   };
 }
 
@@ -125,11 +154,12 @@ function modelErrorPayload(error) {
 }
 
 export class WebUiServer {
-  constructor(config, { store, onebot, agent, logger }) {
+  constructor(config, { store, onebot, agent, observer = null, logger }) {
     this.config = config;
     this.store = store;
     this.onebot = onebot;
     this.agent = agent;
+    this.observer = observer;
     this.logger = logger;
     this.startedAt = Date.now();
     this.publicDir = path.join(config.projectRoot, "web");
@@ -230,6 +260,41 @@ export class WebUiServer {
     }
     if (request.method === "GET" && url.pathname === "/api/config") {
       return json(response, 200, publicConfig(this.config));
+    }
+    if (request.method === "GET" && url.pathname === "/api/observation") {
+      if (!this.observer) return json(response, 503, { error: "observer_unavailable" });
+      return json(response, 200, await this.observer.status());
+    }
+    if (request.method === "PUT" && url.pathname === "/api/observation-settings") {
+      if (!this.observer) return json(response, 503, { error: "observer_unavailable" });
+      const next = observationSettings(await readJson(request), this.config.observation);
+      await this.saveObservationSettings(next);
+      this.observer.updateSettings(next);
+      return json(response, 200, { ok: true, observation: { ...next } });
+    }
+    if (request.method === "POST" && url.pathname === "/api/observation/run") {
+      if (!this.observer) return json(response, 503, { error: "observer_unavailable" });
+      const body = await readJson(request);
+      const groupId = body.groupId == null || body.groupId === "" ? null : String(body.groupId);
+      if (groupId && !/^\d{1,20}$/.test(groupId)) return json(response, 400, { error: "invalid_group_id" });
+      try {
+        const results = await this.observer.runAnalysis({ groupId, force: body.force === true });
+        return json(response, 200, { ok: true, results });
+      } catch (error) {
+        const failure = modelErrorPayload(error);
+        if (error.statusCode === 409) return json(response, 409, { error: "analysis_running", message: error.message });
+        return json(response, failure.status, failure.body);
+      }
+    }
+    const observationMatch = url.pathname.match(/^\/api\/observation\/groups\/(\d{1,20})\/(messages|summaries)$/);
+    if (observationMatch && request.method === "GET") {
+      if (!this.observer) return json(response, 503, { error: "observer_unavailable" });
+      const [, groupId, type] = observationMatch;
+      const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? 100), 1), 500);
+      if (type === "messages") {
+        return json(response, 200, { groupId, messages: await this.observer.store.messages(groupId, { limit, newest: true }) });
+      }
+      return json(response, 200, { groupId, summaries: await this.observer.store.summaries(groupId, limit) });
     }
     if (request.method === "PUT" && url.pathname === "/api/model-settings") {
       const body = await readJson(request);
@@ -345,6 +410,16 @@ export class WebUiServer {
       if (!managed[key]) persisted[key] = settings[key];
     }
     raw.llm = persisted;
+    const temporary = `${configPath}.${process.pid}.tmp`;
+    await fs.writeFile(temporary, `${JSON.stringify(raw, null, 2)}\n`, { mode: 0o600 });
+    await fs.chmod(temporary, 0o600);
+    await fs.rename(temporary, configPath);
+  }
+
+  async saveObservationSettings(settings) {
+    const configPath = this.config.configPath ?? path.join(this.config.projectRoot, "config.json");
+    const raw = JSON.parse(await fs.readFile(configPath, "utf8"));
+    raw.observation = settings;
     const temporary = `${configPath}.${process.pid}.tmp`;
     await fs.writeFile(temporary, `${JSON.stringify(raw, null, 2)}\n`, { mode: 0o600 });
     await fs.chmod(temporary, 0o600);

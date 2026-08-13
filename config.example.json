@@ -32,7 +32,17 @@
     "systemPromptFile": "prompts/system.md",
     "maxHistoryTurns": 20
   },
+  "observation": {
+    "enabled": true,
+    "allGroups": true,
+    "groups": [],
+    "analysisIntervalMinutes": 360,
+    "retentionDays": 30,
+    "minMessages": 10,
+    "maxMessagesPerAnalysis": 500
+  },
   "storage": {
-    "sessionsDir": "data/sessions"
+    "sessionsDir": "data/sessions",
+    "observationsDir": "data/observations"
   }
 }

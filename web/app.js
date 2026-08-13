@@ -191,6 +191,52 @@ function renderConfig(config) {
     .join("");
 }
 
+function observationPayload() {
+  return {
+    enabled: $("#observation-enabled").checked,
+    allGroups: $("#observation-all-groups").checked,
+    groups: $("#observation-groups").value.split(/[\s,，]+/).filter(Boolean),
+    analysisIntervalMinutes: Number($("#observation-interval").value),
+    retentionDays: Number($("#observation-retention").value),
+    minMessages: Number($("#observation-min-messages").value),
+    maxMessagesPerAnalysis: Number($("#observation-max-messages").value),
+  };
+}
+
+function fillObservationSettings(settings) {
+  $("#observation-enabled").checked = settings.enabled;
+  $("#observation-all-groups").checked = settings.allGroups;
+  $("#observation-groups").value = settings.groups.join(", ");
+  $("#observation-groups").disabled = settings.allGroups;
+  $("#observation-interval").value = settings.analysisIntervalMinutes;
+  $("#observation-retention").value = settings.retentionDays;
+  $("#observation-min-messages").value = settings.minMessages;
+  $("#observation-max-messages").value = settings.maxMessagesPerAnalysis;
+}
+
+function renderObservation(status, settings = null) {
+  if (settings) fillObservationSettings(settings);
+  const tag = $("#observation-state");
+  tag.textContent = status.enabled ? (status.analysisRunning ? "分析中" : "观察中") : "已关闭";
+  tag.className = `tag ${status.enabled ? "" : "neutral"}`;
+  const next = status.nextAnalysisAt ? new Date(status.nextAnalysisAt).toLocaleString() : "已暂停";
+  const statusNode = $("#observation-settings-status");
+  statusNode.textContent = `下次自动分析：${next}`;
+  statusNode.className = "settings-status";
+  const rows = $("#observation-rows");
+  if (!status.groups.length) {
+    rows.innerHTML = '<tr><td colspan="5" class="empty-state">尚未收到符合范围的群消息</td></tr>';
+    return;
+  }
+  rows.innerHTML = status.groups.map((group) => `<tr>
+    <td><div class="session-key">群 ${escapeHtml(group.groupId)}</div></td>
+    <td>${group.messageCount}</td>
+    <td>${group.lastMessageAt ? new Date(group.lastMessageAt).toLocaleString() : "—"}</td>
+    <td>${group.lastSummaryAt ? new Date(group.lastSummaryAt).toLocaleString() : "尚未分析"}</td>
+    <td><div class="row-actions"><button class="small-button" data-observation-view="${group.groupId}">摘要</button><button class="small-button" data-observation-run="${group.groupId}">分析</button></div></td>
+  </tr>`).join("");
+}
+
 function fillModelSettings(llm) {
   $("#model-base-url-input").value = llm.baseUrl;
   $("#model-id-input").value = llm.model;
@@ -256,12 +302,13 @@ function connectEvents() {
 
 async function loadDashboard() {
   try {
-    const [status, config, sessions, logs] = await Promise.all([
-      api("/api/status"), api("/api/config"), api("/api/sessions"), api("/api/logs?limit=150"),
+    const [status, config, sessions, logs, observation] = await Promise.all([
+      api("/api/status"), api("/api/config"), api("/api/sessions"), api("/api/logs?limit=150"), api("/api/observation"),
     ]);
     renderStatus(status);
     renderConfig(config);
     renderSessions(sessions.sessions);
+    renderObservation(observation, config.observation);
     state.logs = logs.entries;
     renderLogs();
     connectEvents();
@@ -273,9 +320,10 @@ async function loadDashboard() {
 
 async function refreshLiveData() {
   try {
-    const [status, sessions] = await Promise.all([api("/api/status"), api("/api/sessions")]);
+    const [status, sessions, observation] = await Promise.all([api("/api/status"), api("/api/sessions"), api("/api/observation")]);
     renderStatus(status);
     renderSessions(sessions.sessions);
+    renderObservation(observation);
   } catch (error) {
     showToast(error.message);
   }
@@ -292,6 +340,64 @@ $("#refresh-button").addEventListener("click", () => refreshLiveData().then(() =
 $("#log-level").addEventListener("change", renderLogs);
 $("#clear-logs").addEventListener("click", () => { state.logs = []; renderLogs(); });
 $("#close-dialog").addEventListener("click", () => $("#session-dialog").close());
+$("#close-observation-dialog").addEventListener("click", () => $("#observation-dialog").close());
+$("#observation-all-groups").addEventListener("change", (event) => {
+  $("#observation-groups").disabled = event.target.checked;
+});
+
+$("#observation-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const status = $("#observation-settings-status");
+  status.textContent = "正在保存…";
+  try {
+    await api("/api/observation-settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(observationPayload()),
+    });
+    const [config, observation] = await Promise.all([api("/api/config"), api("/api/observation")]);
+    renderObservation(observation, config.observation);
+    showToast("观察设置已保存并立即生效");
+  } catch (error) {
+    status.textContent = `保存失败：${error.message}`;
+    status.className = "settings-status error";
+  }
+});
+
+async function runObservation(groupId = null) {
+  const status = $("#observation-settings-status");
+  status.textContent = groupId ? `正在分析群 ${groupId}…` : "正在分析全部已记录群…";
+  try {
+    const result = await api("/api/observation/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ groupId, force: true }),
+    });
+    const completed = result.results.filter((item) => item.status === "completed").length;
+    showToast(`分析完成，生成 ${completed} 份摘要`);
+    await refreshLiveData();
+  } catch (error) {
+    status.textContent = `分析失败：${error.message}`;
+    status.className = "settings-status error";
+  }
+}
+
+$("#run-observation").addEventListener("click", () => runObservation());
+$("#observation-rows").addEventListener("click", async (event) => {
+  const runId = event.target.dataset.observationRun;
+  const viewId = event.target.dataset.observationView;
+  if (runId) await runObservation(runId);
+  if (viewId) {
+    try {
+      const data = await api(`/api/observation/groups/${viewId}/summaries?limit=20`);
+      text("#observation-dialog-title", `群 ${viewId} · 分析摘要`);
+      $("#observation-summaries").innerHTML = data.summaries.length
+        ? data.summaries.map((summary) => `<article class="digest"><span>${new Date(summary.createdAt).toLocaleString()} · ${summary.messageCount} 条消息</span>${escapeHtml(summary.summary)}</article>`).join("")
+        : '<p class="empty-state">这个群还没有分析摘要</p>';
+      $("#observation-dialog").showModal();
+    } catch (error) { showToast(error.message); }
+  }
+});
 
 $("#chat-form").addEventListener("submit", (event) => {
   event.preventDefault();

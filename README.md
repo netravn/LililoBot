@@ -25,6 +25,9 @@
 - 脱敏配置查看
 - WebUI 修改模型 API URL、模型和 API Key，保存后热更新
 - 模型连接测试与 401、429、超时等错误提示
+- 暗中观察模式：静默记录全部或指定群的普通消息
+- 内置定时分析器，为每个群生成独立阶段摘要
+- WebUI 管理观察范围、分析周期、原文保留期与手动分析
 
 ## 架构
 
@@ -35,6 +38,8 @@ NapCat / QQ
   -> core/bot             命令及 Agent 编排
   -> services/openai      模型适配器
   -> store                会话持久化
+  -> services/group-observer + observation-store
+                          群消息静默归档、定时摘要（与 Agent 记忆隔离）
   -> webui + web          本地控制台和管理 API
 ```
 
@@ -76,6 +81,28 @@ WebUI 默认只监听本机。如果把 `webui.host` 改成 `0.0.0.0`，必须�
 “模型设置”可以修改 OpenAI 兼容 API URL、模型、API Key、Temperature 和超时，并在保存前测试连接。API Key 只可写入，不会从服务端回显；留空会保留当前 Key。保存内容立即用于后续对话，同时写入已被 Git 忽略的 `config.json`。如果某项由 `OPENAI_*` 环境变量控制，页面会将其标记为只读。
 
 控制台首页可以直接和莉莉洛对话。网页使用独立的 `local:web:<会话ID>` 上下文，不会读取或写入 QQ 会话。点击“新对话”会创建新的网页会话，旧会话仍可在会话管理中查看或重置。
+
+## 暗中观察
+
+观察模式在 OneBot 消息进入后、触发词判断前运行，因此无需 `@机器人` 就能记录群内普通消息，但全程不会向 QQ 发送回复。原始记录按群号和日期写入 `data/observations/messages/`，模型摘要写入 `data/observations/summaries/`；它们不会进入莉莉洛的聊天上下文。
+
+示例配置默认启用并观察 Bot 已加入的全部群：
+
+```json
+"observation": {
+  "enabled": true,
+  "allGroups": true,
+  "groups": [],
+  "analysisIntervalMinutes": 360,
+  "retentionDays": 30,
+  "minMessages": 10,
+  "maxMessagesPerAnalysis": 500
+}
+```
+
+如只观察指定群，把 `allGroups` 改为 `false` 并在 `groups` 中填写群号。所有配置均可在 WebUI 的“暗中观察”区域热更新，也可手动对全部或单个群立即生成摘要。自动分析不足 `minMessages` 时会跳过；手动分析只要存在消息就会执行。模型失败只写后台日志，不会把错误发进 QQ。
+
+群聊记录可能包含个人信息。部署前应取得群成员知情同意，限制 WebUI 访问，并根据用途设置尽可能短的 `retentionDays`；不要用摘要做敏感属性推断或自动化处罚决定。
 
 ## 终端对话
 

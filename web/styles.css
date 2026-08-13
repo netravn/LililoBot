@@ -114,6 +114,16 @@ button { cursor: pointer; border: 0; border-radius: 10px; padding: 11px 15px; co
 .empty-chip { color: var(--muted); background: rgba(255,255,255,.04); }
 
 .section-panel { margin-top: 14px; padding: 25px; scroll-margin-top: 90px; }
+.observation-intro { margin: 12px 0 0; line-height: 1.6; }
+.observation-settings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 22px; padding: 22px; border: 1px solid rgba(104,217,232,.1); border-radius: 18px; background: linear-gradient(135deg, rgba(104,217,232,.035), rgba(31,48,76,.08)); }
+.switch-field { display: flex; align-items: center; gap: 12px; grid-column: span 2; min-height: 48px; }
+.switch-field input { width: 18px; height: 18px; min-width: 18px; accent-color: var(--gold); }
+.switch-field span, .switch-field small { display: block; }
+.switch-field strong { font-size: 13px; }
+.switch-field small { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.observation-groups-field { grid-column: 1 / -1; }
+.digest { padding: 16px; border: 1px solid rgba(255,255,255,.07); border-radius: 14px; background: #181c25; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+.digest span { display: block; margin-bottom: 9px; color: var(--muted); font-size: 11px; }
 .table-wrap { overflow-x: auto; margin-top: 24px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { padding: 12px 10px; color: var(--muted); border-bottom: 1px solid var(--line); text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
@@ -178,6 +188,7 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(6px); }
   .split-grid { grid-template-columns: 1fr; }
   .config-grid { grid-template-columns: 1fr; }
   .model-settings { grid-template-columns: 1fr 1fr; }
+  .observation-settings { grid-template-columns: 1fr 1fr; }
   .field.wide { grid-column: 1 / -1; }
   .log-line { grid-template-columns: 76px 54px 1fr; }
   .log-scope { display: none; }
@@ -199,6 +210,8 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(6px); }
   .chat-composer button { min-width: 64px; padding-inline: 11px; }
   .panel-heading { align-items: flex-start; flex-direction: column; }
   .model-settings { grid-template-columns: 1fr; padding: 17px; }
+  .observation-settings { grid-template-columns: 1fr; padding: 17px; }
+  .switch-field, .observation-groups-field { grid-column: auto; }
   .field.wide, .settings-actions { grid-column: auto; }
   .settings-actions { align-items: stretch; flex-direction: column; }
   .settings-status { margin: 0 0 4px; }

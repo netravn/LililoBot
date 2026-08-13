@@ -37,6 +37,7 @@ export function loadConfig(projectRoot = process.cwd()) {
   const llm = requiredObject(config.llm, "llm");
   const bot = requiredObject(config.bot, "bot");
   const storage = requiredObject(config.storage, "storage");
+  const observation = requiredObject(config.observation ?? {}, "observation");
 
   onebot.host ||= "127.0.0.1";
   onebot.port = positiveInteger(onebot.port, "config.onebot.port");
@@ -82,5 +83,29 @@ export function loadConfig(projectRoot = process.cwd()) {
   bot.systemPromptFile = path.resolve(projectRoot, bot.systemPromptFile);
   storage.sessionsDir = path.resolve(projectRoot, storage.sessionsDir);
 
-  return { ...config, onebot, webui, qq, llm, bot, storage, projectRoot, configPath };
+  observation.enabled = observation.enabled === true;
+  observation.allGroups = observation.allGroups === true;
+  observation.groups = normalizeIdList(observation.groups ?? [], "config.observation.groups");
+  observation.analysisIntervalMinutes = positiveInteger(
+    observation.analysisIntervalMinutes ?? 360,
+    "config.observation.analysisIntervalMinutes",
+  );
+  observation.retentionDays = positiveInteger(
+    observation.retentionDays ?? 30,
+    "config.observation.retentionDays",
+  );
+  observation.minMessages = positiveInteger(
+    observation.minMessages ?? 10,
+    "config.observation.minMessages",
+  );
+  observation.maxMessagesPerAnalysis = positiveInteger(
+    observation.maxMessagesPerAnalysis ?? 500,
+    "config.observation.maxMessagesPerAnalysis",
+  );
+  storage.observationsDir = path.resolve(
+    projectRoot,
+    storage.observationsDir ?? "data/observations",
+  );
+
+  return { ...config, onebot, webui, qq, llm, bot, storage, observation, projectRoot, configPath };
 }

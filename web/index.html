@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="LililoBot 本地控制台" />
     <title>莉莉洛 · LililoBot</title>
-    <link rel="stylesheet" href="/styles.css?v=3" />
+    <link rel="stylesheet" href="/styles.css?v=4" />
   </head>
   <body>
     <div class="ambient ambient-a"></div>
@@ -22,6 +22,7 @@
       <nav aria-label="控制台导航">
         <a href="#chat">对话</a>
         <a href="#overview">概览</a>
+        <a href="#observation">观察</a>
         <a href="#sessions">会话</a>
         <a href="#logs">日志</a>
         <a href="#configuration">配置</a>
@@ -110,6 +111,55 @@
         </article>
       </section>
 
+      <section class="panel section-panel observation-panel" id="observation">
+        <div class="panel-heading">
+          <div><p class="eyebrow">SILENT OBSERVATION</p><h2>暗中观察</h2></div>
+          <span class="tag neutral" id="observation-state">读取中</span>
+        </div>
+        <p class="muted observation-intro">静默保存指定群的普通消息，按计划生成后台摘要；不会在 QQ 群中回复或发送分析结果。</p>
+        <form class="observation-settings" id="observation-settings-form">
+          <label class="switch-field">
+            <input id="observation-enabled" type="checkbox" />
+            <span><strong>启动暗中观察</strong><small>关闭后停止记录和定时分析</small></span>
+          </label>
+          <label class="switch-field">
+            <input id="observation-all-groups" type="checkbox" />
+            <span><strong>观察全部已加入群</strong><small>关闭后仅记录下方群号</small></span>
+          </label>
+          <label class="field observation-groups-field">
+            <span>指定群号</span>
+            <input id="observation-groups" type="text" autocomplete="off" placeholder="多个群号用逗号分隔" />
+          </label>
+          <label class="field compact">
+            <span>分析周期（分钟）</span>
+            <input id="observation-interval" type="number" min="5" max="10080" required />
+          </label>
+          <label class="field compact">
+            <span>原文保留（天）</span>
+            <input id="observation-retention" type="number" min="1" max="3650" required />
+          </label>
+          <label class="field compact">
+            <span>最少消息数</span>
+            <input id="observation-min-messages" type="number" min="1" max="10000" required />
+          </label>
+          <label class="field compact">
+            <span>单次分析上限</span>
+            <input id="observation-max-messages" type="number" min="10" max="5000" required />
+          </label>
+          <div class="settings-actions">
+            <span class="settings-status" id="observation-settings-status" aria-live="polite">—</span>
+            <button class="ghost-button" id="run-observation" type="button">立即分析</button>
+            <button id="save-observation-settings" type="submit">保存并应用</button>
+          </div>
+        </form>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>群号</th><th>已记录</th><th>最后消息</th><th>最后摘要</th><th><span class="sr-only">操作</span></th></tr></thead>
+            <tbody id="observation-rows"><tr><td colspan="5" class="empty-state">尚未记录群消息</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="panel section-panel" id="sessions">
         <div class="panel-heading">
           <div><p class="eyebrow">CONVERSATIONS</p><h2>会话管理</h2></div>
@@ -189,7 +239,15 @@
       <div class="conversation" id="conversation"></div>
     </dialog>
 
+    <dialog id="observation-dialog">
+      <div class="dialog-heading">
+        <div><p class="eyebrow">GROUP DIGESTS</p><h2 id="observation-dialog-title">群聊摘要</h2></div>
+        <button class="icon-button" id="close-observation-dialog" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="conversation" id="observation-summaries"></div>
+    </dialog>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/app.js?v=3"></script>
+    <script type="module" src="/app.js?v=4"></script>
   </body>
 </html>

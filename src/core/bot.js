@@ -2,15 +2,21 @@ import { parseInboundMessage, sessionKey } from "./message.js";
 import { decideTrigger } from "./trigger.js";
 
 export class Bot {
-  constructor(config, agent, logger = null) {
+  constructor(config, agent, logger = null, observer = null) {
     this.config = config;
     this.agent = agent;
     this.logger = logger;
+    this.observer = observer;
   }
 
   async handleOneBotEvent(connection, event) {
     const message = parseInboundMessage(event);
     if (!message) return;
+    try {
+      await this.observer?.observe(message);
+    } catch (error) {
+      this.logger?.error("observer", `message capture failed group=${message.conversationId}`, error);
+    }
     const decision = decideTrigger(message, this.config);
     if (!decision.accepted) return;
     const key = sessionKey(message);
