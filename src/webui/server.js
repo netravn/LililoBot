@@ -56,6 +56,7 @@ function localSession(channel, id) {
 }
 
 function publicConfig(config) {
+  const tools = config.tools ?? { enabled: false, maxRounds: 0, search: {}, fetch: {}, scripts: {} };
   return {
     bot: {
       name: config.bot.name,
@@ -88,6 +89,14 @@ function publicConfig(config) {
       accessTokenConfigured: Boolean(config.webui.accessToken),
     },
     observation: { ...config.observation },
+    tools: {
+      enabled: tools.enabled,
+      maxRounds: tools.maxRounds,
+      searchEnabled: tools.search.enabled && Boolean(tools.search.baseUrl),
+      fetchEnabled: tools.fetch.enabled,
+      scriptsEnabled: tools.scripts.enabled,
+      scriptsAllowedInQqAdminPrivate: tools.scripts.allowQqAdminPrivate,
+    },
   };
 }
 
@@ -226,6 +235,7 @@ export class WebUiServer {
           key,
           content: message,
           persist: body.transient !== true,
+          context: { channel, kind: "local", isAdmin: true },
         });
         return json(response, 200, { answer: result.answer, channel, sessionId });
       } catch (error) {

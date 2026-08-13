@@ -43,3 +43,33 @@ test("OpenAiClient reports missing configuration", async () => {
     (error) => error.code === "model_not_configured" && error.statusCode === 503,
   );
 });
+
+test("OpenAiClient sends tools and returns tool calls", async () => {
+  let received;
+  const server = http.createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    received = JSON.parse(body);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ choices: [{ message: {
+      role: "assistant",
+      content: null,
+      tool_calls: [{ id: "call-1", type: "function", function: { name: "status", arguments: "{}" } }],
+    } }] }));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const client = new OpenAiClient({
+      baseUrl: `http://127.0.0.1:${server.address().port}`,
+      apiKey: "test", model: "test-model", temperature: 0, timeoutMs: 1000,
+    });
+    const tools = [{ type: "function", function: { name: "status", parameters: { type: "object" } } }];
+    const result = await client.complete([{ role: "user", content: "status" }], tools);
+    assert.equal(result.tool_calls[0].function.name, "status");
+    assert.deepEqual(received.tools, tools);
+    assert.equal(received.tool_choice, "auto");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

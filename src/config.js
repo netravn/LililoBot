@@ -38,6 +38,7 @@ export function loadConfig(projectRoot = process.cwd()) {
   const bot = requiredObject(config.bot, "bot");
   const storage = requiredObject(config.storage, "storage");
   const observation = requiredObject(config.observation ?? {}, "observation");
+  const tools = requiredObject(config.tools ?? {}, "tools");
 
   onebot.host ||= "127.0.0.1";
   onebot.port = positiveInteger(onebot.port, "config.onebot.port");
@@ -118,5 +119,34 @@ export function loadConfig(projectRoot = process.cwd()) {
     storage.observationsDir ?? "data/observations",
   );
 
-  return { ...config, onebot, webui, qq, llm, bot, storage, observation, projectRoot, configPath };
+  tools.enabled = tools.enabled === true;
+  tools.maxRounds = positiveInteger(tools.maxRounds ?? 5, "config.tools.maxRounds");
+  if (tools.maxRounds > 10) throw new Error("config.tools.maxRounds must not exceed 10");
+  tools.search = requiredObject(tools.search ?? {}, "tools.search");
+  tools.search.enabled = tools.search.enabled === true;
+  tools.search.baseUrl = String(tools.search.baseUrl ?? "").replace(/\/$/, "");
+  if (tools.search.enabled) {
+    let searchUrl;
+    try { searchUrl = new URL(tools.search.baseUrl); }
+    catch { throw new Error("config.tools.search.baseUrl must be a valid URL when search is enabled"); }
+    if (!['http:', 'https:'].includes(searchUrl.protocol) || searchUrl.username || searchUrl.password) {
+      throw new Error("config.tools.search.baseUrl must be an HTTP(S) URL without credentials");
+    }
+  }
+  tools.search.language ||= "zh-CN";
+  tools.search.timeoutMs = positiveInteger(tools.search.timeoutMs ?? 10000, "config.tools.search.timeoutMs");
+  tools.search.maxResults = positiveInteger(tools.search.maxResults ?? 5, "config.tools.search.maxResults");
+  tools.fetch = requiredObject(tools.fetch ?? {}, "tools.fetch");
+  tools.fetch.enabled = tools.fetch.enabled === true;
+  tools.fetch.timeoutMs = positiveInteger(tools.fetch.timeoutMs ?? 10000, "config.tools.fetch.timeoutMs");
+  tools.fetch.maxBytes = positiveInteger(tools.fetch.maxBytes ?? 512000, "config.tools.fetch.maxBytes");
+  tools.fetch.maxTextChars = positiveInteger(tools.fetch.maxTextChars ?? 12000, "config.tools.fetch.maxTextChars");
+  tools.scripts = requiredObject(tools.scripts ?? {}, "tools.scripts");
+  tools.scripts.enabled = tools.scripts.enabled === true;
+  tools.scripts.directory ||= "tools/scripts";
+  tools.scripts.allowQqAdminPrivate = tools.scripts.allowQqAdminPrivate === true;
+  tools.scripts.timeoutMs = positiveInteger(tools.scripts.timeoutMs ?? 10000, "config.tools.scripts.timeoutMs");
+  tools.scripts.maxOutputBytes = positiveInteger(tools.scripts.maxOutputBytes ?? 20000, "config.tools.scripts.maxOutputBytes");
+
+  return { ...config, onebot, webui, qq, llm, bot, storage, observation, tools, projectRoot, configPath };
 }

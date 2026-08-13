@@ -43,6 +43,30 @@
     "minMessages": 10,
     "maxMessagesPerAnalysis": 500
   },
+  "tools": {
+    "enabled": true,
+    "maxRounds": 5,
+    "search": {
+      "enabled": false,
+      "baseUrl": "http://127.0.0.1:8888",
+      "language": "zh-CN",
+      "timeoutMs": 10000,
+      "maxResults": 5
+    },
+    "fetch": {
+      "enabled": true,
+      "timeoutMs": 10000,
+      "maxBytes": 512000,
+      "maxTextChars": 12000
+    },
+    "scripts": {
+      "enabled": false,
+      "directory": "tools/scripts",
+      "allowQqAdminPrivate": false,
+      "timeoutMs": 10000,
+      "maxOutputBytes": 20000
+    }
+  },
   "storage": {
     "sessionsDir": "data/sessions",
     "observationsDir": "data/observations"

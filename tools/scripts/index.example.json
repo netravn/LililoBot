@@ -1,0 +1,11 @@
+{
+  "scripts": [
+    {
+      "name": "system_report",
+      "description": "生成预先定义的只读系统报告。",
+      "file": "system-report.sh",
+      "enabled": false,
+      "arguments": []
+    }
+  ]
+}

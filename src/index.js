@@ -8,6 +8,9 @@ import { ConversationStore } from "./store/conversation-store.js";
 import { ObservationStore } from "./store/observation-store.js";
 import { GroupObserver } from "./services/group-observer.js";
 import { WebUiServer } from "./webui/server.js";
+import { ToolRegistry } from "./tools/registry.js";
+import { registerBuiltins } from "./tools/builtins.js";
+import { registerScripts } from "./tools/scripts.js";
 
 async function main() {
   const config = loadConfig();
@@ -15,7 +18,10 @@ async function main() {
   const store = new ConversationStore(config.storage.sessionsDir, config.bot.maxHistoryTurns);
   await store.init();
   const llm = new OpenAiClient(config.llm);
-  const agent = new AgentRuntime(config, store, llm, logger);
+  const tools = new ToolRegistry({ logger });
+  registerBuiltins(tools, config.tools);
+  await registerScripts(tools, config.tools.scripts, config.projectRoot);
+  const agent = new AgentRuntime(config, store, llm, logger, tools);
   await agent.init();
   const observationStore = new ObservationStore(config.storage.observationsDir);
   const observer = new GroupObserver(config, observationStore, llm, logger);

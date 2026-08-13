@@ -51,7 +51,17 @@ export class Bot {
       message.kind === "group" ? `[QQ 群成员 ${message.senderName} (${message.senderId})]\n` : "";
     const userContent = `${groupPrefix}${content.trim()}`;
     try {
-      const { answer } = await this.agent.chat({ key, content: userContent });
+      const { answer } = await this.agent.chat({
+        key,
+        content: userContent,
+        context: {
+          channel: "qq",
+          kind: message.kind,
+          senderId: message.senderId,
+          conversationId: message.conversationId,
+          isAdmin: this.config.qq.adminUsers.includes(message.senderId),
+        },
+      });
       await connection.sendText(message, answer, this.config.qq);
     } catch (error) {
       if (this.logger) this.logger.error("bot", `session=${key}`, error);

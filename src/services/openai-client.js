@@ -4,6 +4,19 @@ export class OpenAiClient {
   }
 
   async chat(systemPrompt, history, userContent) {
+    const message = await this.complete([
+      { role: "system", content: systemPrompt },
+      ...history,
+      { role: "user", content: userContent },
+    ]);
+    const content = message.content;
+    if (typeof content !== "string" || !content.trim()) {
+      throw new ModelRequestError("model_empty_response", 502, "模型没有返回可用文本");
+    }
+    return content.trim();
+  }
+
+  async complete(messages, tools = []) {
     if (!this.config.apiKey) {
       throw new ModelRequestError("model_not_configured", 503, "模型 API Key 尚未配置");
     }
@@ -19,11 +32,8 @@ export class OpenAiClient {
         body: JSON.stringify({
           model: this.config.model,
           temperature: this.config.temperature,
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...history,
-            { role: "user", content: userContent },
-          ],
+          messages,
+          ...(tools.length ? { tools, tool_choice: "auto" } : {}),
         }),
         signal: controller.signal,
       });
@@ -44,11 +54,11 @@ export class OpenAiClient {
       } catch {
         throw new ModelRequestError("model_invalid_response", 502, "模型服务返回了无法解析的数据");
       }
-      const content = data.choices?.[0]?.message?.content;
-      if (typeof content !== "string" || !content.trim()) {
-        throw new ModelRequestError("model_empty_response", 502, "模型没有返回可用文本");
+      const message = data.choices?.[0]?.message;
+      if (!message || (typeof message.content !== "string" && !Array.isArray(message.tool_calls))) {
+        throw new ModelRequestError("model_empty_response", 502, "模型没有返回可用消息");
       }
-      return content.trim();
+      return message;
     } catch (error) {
       if (error instanceof ModelRequestError) throw error;
       if (error?.name === "AbortError") {

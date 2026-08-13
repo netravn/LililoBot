@@ -35,3 +35,38 @@ test("AgentRuntime persists and isolates platform sessions", async () => {
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test("AgentRuntime executes an allowed tool and returns the final answer", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "lililo-tools-"));
+  const prompt = path.join(directory, "system.md");
+  await fs.writeFile(prompt, "persona");
+  const store = new ConversationStore(path.join(directory, "sessions"), 10);
+  await store.init();
+  let round = 0;
+  const llm = {
+    complete: async (messages, definitions) => {
+      assert.equal(definitions[0].function.name, "status");
+      if (round++ === 0) return {
+        content: null,
+        tool_calls: [{ id: "call-1", function: { name: "status", arguments: "{}" } }],
+      };
+      assert.equal(messages.at(-1).role, "tool");
+      assert.equal(messages.at(-1).content, "healthy");
+      return { content: "一切正常。" };
+    },
+  };
+  const tools = {
+    definitions: () => [{ type: "function", function: { name: "status" } }],
+    execute: async () => "healthy",
+  };
+  const config = { bot: { systemPromptFile: prompt }, tools: { enabled: true, maxRounds: 3 } };
+  const agent = new AgentRuntime(config, store, llm, null, tools);
+  await agent.init();
+  try {
+    const result = await agent.chat({ key: "local:web:test", content: "检查状态", context: { channel: "web" } });
+    assert.equal(result.answer, "一切正常。");
+    assert.equal((await agent.history("local:web:test")).length, 2);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
