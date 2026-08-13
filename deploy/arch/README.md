@@ -85,6 +85,8 @@ ssh -L 6099:127.0.0.1:6099 -L 8400:127.0.0.1:8400 user@server
 URL: ws://127.0.0.1:8300/ws
 Token: 与 /etc/lililo-bot.env 的 ONEBOT_ACCESS_TOKEN 完全一致
 消息格式: Array
+重连间隔: 5000 ms
+心跳周期: 30000 ms
 ```
 
 这是反向 WebSocket：NapCat 主动连接莉莉洛，无需再开启 NapCat 的 WebSocket 服务端。
@@ -115,6 +117,7 @@ sudo systemctl disable --now lililo-bot napcat
 - OneBot token 和 WebUI token 使用不同的长随机值。
 - 建议先用测试 QQ 号运行；非官方机器人接入存在账号风控风险。
 - QQ 更新可能使 NapCat 注入失效，更新后先检查 `napcat.service` 日志。
+- 两个 systemd unit 均使用 `Restart=always`；即使程序意外以成功状态退出，也会被重新拉起。账号被风控或登录失效仍需在 NapCat 侧重新登录。
 
 官方参考：
 

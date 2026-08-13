@@ -43,6 +43,17 @@ export function loadConfig(projectRoot = process.cwd()) {
   onebot.port = positiveInteger(onebot.port, "config.onebot.port");
   onebot.path ||= "/ws";
   onebot.accessToken = process.env.ONEBOT_ACCESS_TOKEN ?? onebot.accessToken ?? "";
+  onebot.heartbeatTimeoutMs = positiveInteger(
+    onebot.heartbeatTimeoutMs ?? 90000,
+    "config.onebot.heartbeatTimeoutMs",
+  );
+  onebot.healthCheckIntervalMs = positiveInteger(
+    onebot.healthCheckIntervalMs ?? 15000,
+    "config.onebot.healthCheckIntervalMs",
+  );
+  if (onebot.healthCheckIntervalMs >= onebot.heartbeatTimeoutMs) {
+    throw new Error("config.onebot.healthCheckIntervalMs must be less than heartbeatTimeoutMs");
+  }
   if (!onebot.path.startsWith("/")) throw new Error("config.onebot.path must start with /");
 
   webui.enabled = webui.enabled !== false;

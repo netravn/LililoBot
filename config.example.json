@@ -3,7 +3,9 @@
     "host": "127.0.0.1",
     "port": 8300,
     "path": "/ws",
-    "accessToken": "change-me"
+    "accessToken": "change-me",
+    "heartbeatTimeoutMs": 90000,
+    "healthCheckIntervalMs": 15000
   },
   "webui": {
     "enabled": true,

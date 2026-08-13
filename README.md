@@ -5,6 +5,7 @@
 ## 已实现
 
 - OneBot v11 反向 WebSocket 接入和 access token 鉴权
+- OneBot 心跳监测、半开连接清理和同账号连接替换
 - 私聊白名单、群聊白名单
 - 群聊 `@机器人` 和关键词触发
 - 私聊、群聊、Bot 账号三级会话隔离
@@ -129,7 +130,11 @@ npm run ask -- "介绍一下你自己"
 URL: ws://运行本项目的主机:8300/ws
 Token: 与 onebot.accessToken 相同
 消息格式: Array
+重连间隔: 5000 ms
+心跳周期: 30000 ms
 ```
+
+莉莉洛默认允许 90 秒心跳窗口，并每 15 秒检查一次连接。WebSocket Ping/Pong 或 OneBot `meta_event.heartbeat` 都会更新活跃时间；超过窗口的半开连接会被主动关闭，让 NapCat 自动重连。同一 QQ 建立新连接时，旧连接也会立即退出，避免重复或僵尸连接。可通过 `onebot.heartbeatTimeoutMs` 和 `onebot.healthCheckIntervalMs` 调整。
 
 默认只接受同一台机器上的 NapCat 连接。如果 NapCat 与机器人不在同一台机器，需要把 `onebot.host` 改成可访问的监听地址；同时确认防火墙只允许可信来源访问 8300 端口，并且一定要设置长随机 token。
 

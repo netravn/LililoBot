@@ -46,3 +46,39 @@ test("accepts an authenticated reverse WebSocket and dispatches events", async (
   await once(client, "close");
   await server.stop();
 });
+
+test("replaces duplicate accounts and closes stale connections", async () => {
+  const server = new OneBotServer(
+    {
+      host: "127.0.0.1", port: 0, path: "/ws", accessToken: "test-secret",
+      heartbeatTimeoutMs: 100, healthCheckIntervalMs: 60_000,
+    },
+    () => {},
+  );
+  const websocketServer = server.start();
+  await once(websocketServer, "listening");
+  const url = `ws://127.0.0.1:${websocketServer.address().port}/ws`;
+  const options = { headers: { authorization: "Bearer test-secret", "x-self-id": "42" } };
+  const first = new WebSocket(url, options);
+  await once(first, "open");
+  const firstClosed = once(first, "close");
+  const second = new WebSocket(url, options);
+  await once(second, "open");
+  const [closeCode] = await firstClosed;
+  assert.equal(closeCode, 4001);
+
+  second.send(JSON.stringify({
+    post_type: "meta_event", meta_event_type: "heartbeat", self_id: 42,
+  }));
+  await new Promise((resolve) => setImmediate(resolve));
+  const status = server.status();
+  assert.deepEqual(status.connectedAccounts, ["42"]);
+  assert.equal(status.accounts.length, 1);
+  assert.ok(status.accounts[0].lastHeartbeatAt);
+
+  const secondClosed = once(second, "close");
+  server.checkHealth(Date.now() + 1_000);
+  await secondClosed;
+  assert.deepEqual(server.status().connectedAccounts, []);
+  await server.stop();
+});

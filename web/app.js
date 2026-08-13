@@ -63,11 +63,14 @@ function showToast(message) {
 }
 
 function renderStatus(status) {
-  const online = status.onebot.listening;
-  text("#onebot-state", online ? "监听中" : "已停止");
+  const listening = status.onebot.listening;
+  const healthyAccounts = status.onebot.accounts?.filter((account) => account.healthy) ??
+    status.onebot.connectedAccounts.map((selfId) => ({ selfId, healthy: true }));
+  const online = listening && healthyAccounts.length > 0;
+  text("#onebot-state", online ? "QQ 在线" : listening ? "等待连接" : "已停止");
   text("#onebot-endpoint", `${status.onebot.host}:${status.onebot.port}${status.onebot.path}`);
-  text("#account-count", status.onebot.connectedAccounts.length);
-  text("#account-list", status.onebot.connectedAccounts.join("、") || "尚未连接");
+  text("#account-count", healthyAccounts.length);
+  text("#account-list", healthyAccounts.map((account) => account.selfId).join("、") || "尚未连接");
   text("#session-count", status.sessions);
   text("#uptime", duration(status.uptimeSeconds));
   text("#node-version", status.nodeVersion);
@@ -79,11 +82,15 @@ function renderStatus(status) {
   const health = $("#health-pill");
   health.classList.toggle("online", online);
   health.classList.toggle("offline", !online);
-  health.querySelector("b").textContent = online ? "服务正常" : "服务异常";
+  health.querySelector("b").textContent = online ? "QQ 在线" : listening ? "等待 NapCat" : "服务异常";
 
   const chips = $("#account-chips");
-  chips.innerHTML = status.onebot.connectedAccounts.length
-    ? status.onebot.connectedAccounts.map((id) => `<span class="account-chip">QQ ${escapeHtml(id)}</span>`).join("")
+  chips.innerHTML = healthyAccounts.length
+    ? healthyAccounts.map((account) => {
+      const lastSeen = account.lastHeartbeatAt || account.lastActivityAt;
+      const title = lastSeen ? `最后活动：${new Date(lastSeen).toLocaleString()}` : "连接正常";
+      return `<span class="account-chip" title="${escapeHtml(title)}">QQ ${escapeHtml(account.selfId)}</span>`;
+    }).join("")
     : '<span class="empty-chip">暂无在线账号</span>';
 }
 

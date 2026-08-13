@@ -65,6 +65,8 @@ function publicConfig(config) {
       host: config.onebot.host,
       port: config.onebot.port,
       path: config.onebot.path,
+      heartbeatTimeoutMs: config.onebot.heartbeatTimeoutMs,
+      healthCheckIntervalMs: config.onebot.healthCheckIntervalMs,
       accessTokenConfigured: Boolean(config.onebot.accessToken),
     },
     qq: config.qq,

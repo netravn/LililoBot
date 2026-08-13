@@ -5,9 +5,29 @@ export class OneBotConnection {
     this.socket = socket;
     this.selfId = selfId;
     this.pending = new Map();
-    socket.on("message", (data) => this.onFrame?.(data.toString()));
+    this.connectedAt = Date.now();
+    this.lastActivityAt = this.connectedAt;
+    this.lastHeartbeatAt = null;
+    socket.on("message", (data) => {
+      this.lastActivityAt = Date.now();
+      this.onFrame?.(data.toString());
+    });
+    socket.on("pong", () => { this.lastActivityAt = Date.now(); });
     socket.on("close", () => this.rejectPending(new Error("OneBot connection closed")));
     socket.on("error", (error) => this.rejectPending(error));
+  }
+
+  observeFrame(frame) {
+    this.lastActivityAt = Date.now();
+    if (frame?.post_type === "meta_event" && frame?.meta_event_type === "heartbeat") {
+      this.lastHeartbeatAt = this.lastActivityAt;
+      return true;
+    }
+    return false;
+  }
+
+  healthy(now, timeoutMs) {
+    return this.socket.readyState === 1 && now - this.lastActivityAt <= timeoutMs;
   }
 
   handleApiResponse(frame) {
