@@ -3,6 +3,8 @@ Description=NapCat QQ (headless Xvfb)
 Documentation=https://napneko.github.io/guide/boot/Shell-Linux-SemiAuto
 Wants=network-online.target lililo-bot.service
 After=network-online.target lililo-bot.service
+StartLimitIntervalSec=30min
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -10,9 +12,12 @@ User=@BOT_USER@
 Group=@BOT_GROUP@
 WorkingDirectory=@BOT_HOME@
 Environment=HOME=@BOT_HOME@
-ExecStart=/usr/bin/xvfb-run -a /usr/bin/qq --no-sandbox -q @QQ_NUMBER@
-Restart=always
-RestartSec=10s
+EnvironmentFile=-/etc/napcat.env
+RuntimeDirectory=lililo-napcat
+RuntimeDirectoryMode=0700
+ExecStart=/usr/bin/flock --nonblock /run/lililo-napcat/session.lock /usr/bin/xvfb-run -a /usr/bin/qq --no-sandbox -q @QQ_NUMBER@
+Restart=on-failure
+RestartSec=5min
 TimeoutStopSec=30s
 NoNewPrivileges=true
 PrivateTmp=true

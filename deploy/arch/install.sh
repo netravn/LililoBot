@@ -77,7 +77,7 @@ bot_home=$(getent passwd "${bot_user}" | cut -d: -f6)
 [[ -n ${bot_home} && -d ${bot_home} ]] || die "home directory not found for ${bot_user}"
 
 echo "Installing Arch dependencies..."
-pacman -S --needed --noconfirm nodejs npm xorg-server-xvfb
+pacman -S --needed --noconfirm nodejs npm xorg-server-xvfb util-linux
 
 echo "Installing production Node.js dependencies..."
 runuser -u "${bot_user}" -- npm --prefix "${project_dir}" ci --omit=dev
@@ -107,6 +107,13 @@ render_unit() {
 
 render_unit "${script_dir}/lililo-bot.service" /etc/systemd/system/lililo-bot.service
 render_unit "${script_dir}/napcat.service" /etc/systemd/system/napcat.service
+
+if [[ ! -f /etc/napcat.env ]]; then
+  install -o root -g root -m 600 "${script_dir}/napcat.env.example" /etc/napcat.env
+  echo "Created /etc/napcat.env"
+else
+  echo "Keeping existing /etc/napcat.env"
+fi
 
 if [[ ! -f /etc/lililo-bot.env ]]; then
   env_content=$(<"${script_dir}/lililo-bot.env.example")
