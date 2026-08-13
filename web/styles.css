@@ -124,6 +124,9 @@ button { cursor: pointer; border: 0; border-radius: 10px; padding: 11px 15px; co
 .observation-groups-field { grid-column: 1 / -1; }
 .digest { padding: 16px; border: 1px solid rgba(255,255,255,.07); border-radius: 14px; background: #181c25; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
 .digest span { display: block; margin-bottom: 9px; color: var(--muted); font-size: 11px; }
+.observation-content { max-height: 62vh; overflow-y: auto; }
+.observed-message { padding: 13px 15px; border: 1px solid rgba(255,255,255,.06); border-radius: 13px; background: #181c25; line-height: 1.58; white-space: pre-wrap; word-break: break-word; }
+.observed-message span { display: block; margin-bottom: 6px; color: var(--cyan); font-size: 11px; }
 .table-wrap { overflow-x: auto; margin-top: 24px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { padding: 12px 10px; color: var(--muted); border-bottom: 1px solid var(--line); text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }

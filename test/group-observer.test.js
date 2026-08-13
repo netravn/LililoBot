@@ -27,6 +27,8 @@ test("silent observer scopes group capture and creates independent summaries", a
     retentionDays: 30, minMessages: 2, maxMessagesPerAnalysis: 100,
   } };
   const observer = new GroupObserver(config, store, llm);
+  const events = [];
+  const unsubscribe = observer.subscribe((event) => events.push(event));
   try {
     await observer.start();
     assert.equal(await observer.observe(groupMessage("10", "不应保存")), false);
@@ -38,6 +40,7 @@ test("silent observer scopes group capture and creates independent summaries", a
     assert.equal(messages[0].content, "第一条");
     assert.deepEqual(await store.groupIds(), ["9"]);
     assert.equal((await store.groupStats())[0].messageCount, 2);
+    assert.deepEqual(events.map((event) => event.type), ["message", "message"]);
 
     const results = await observer.runAnalysis();
     assert.equal(results[0].status, "completed");
@@ -45,7 +48,9 @@ test("silent observer scopes group capture and creates independent summaries", a
     assert.deepEqual(calls[0].history, []);
     assert.match(calls[0].input, /Alice：第一条/);
     assert.equal((await store.summaries("9"))[0].summary, "大家讨论了测试计划。");
+    assert.equal(events.at(-1).type, "summary");
   } finally {
+    unsubscribe();
     observer.stop();
     await fs.rm(temporary, { recursive: true, force: true });
   }

@@ -19,6 +19,7 @@ export class GroupObserver {
     this.running = false;
     this.analysisRunning = false;
     this.nextAnalysisAt = null;
+    this.listeners = new Set();
   }
 
   settings() {
@@ -45,6 +46,7 @@ export class GroupObserver {
       senderName: message.senderName,
       content,
     });
+    this.emit({ type: "message", groupId: message.conversationId });
     return true;
   }
 
@@ -79,6 +81,7 @@ export class GroupObserver {
     Object.assign(this.config.observation, settings);
     this.scheduleNext();
     this.logger?.info("observer", `settings updated enabled=${settings.enabled} all_groups=${settings.allGroups}`);
+    this.emit({ type: "settings" });
   }
 
   async runAnalysis({ groupId = null, force = false } = {}) {
@@ -126,7 +129,17 @@ export class GroupObserver {
     };
     await this.store.appendSummary(summary);
     this.logger?.info("observer", `analysis completed group=${groupId} messages=${messages.length}`);
+    this.emit({ type: "summary", groupId });
     return { groupId, status: "completed", messageCount: messages.length, summary };
+  }
+
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  emit(event) {
+    for (const listener of this.listeners) listener({ ...event, timestamp: new Date().toISOString() });
   }
 
   async status() {
@@ -142,5 +155,6 @@ export class GroupObserver {
   stop() {
     this.running = false;
     clearInterval(this.timer);
+    this.listeners.clear();
   }
 }

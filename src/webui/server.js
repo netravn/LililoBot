@@ -364,11 +364,15 @@ export class WebUiServer {
       const unsubscribe = this.logger.subscribe((entry) => {
         response.write(`id: ${entry.id}\nevent: log\ndata: ${JSON.stringify(entry)}\n\n`);
       });
+      const unsubscribeObservation = this.observer?.subscribe((event) => {
+        response.write(`event: observation\ndata: ${JSON.stringify(event)}\n\n`);
+      });
       this.sseClients.add(response);
       const keepalive = setInterval(() => response.write(": keepalive\n\n"), 15000);
       request.on("close", () => {
         clearInterval(keepalive);
         unsubscribe();
+        unsubscribeObservation?.();
         this.sseClients.delete(response);
       });
       return;

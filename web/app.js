@@ -5,6 +5,7 @@ const state = {
   chatSessionId: localStorage.getItem("qq-agent-chat-session") || createSessionId(),
   chatMessages: [],
   chatBusy: false,
+  observationView: null,
 };
 
 localStorage.setItem("qq-agent-chat-session", state.chatSessionId);
@@ -233,7 +234,7 @@ function renderObservation(status, settings = null) {
     <td>${group.messageCount}</td>
     <td>${group.lastMessageAt ? new Date(group.lastMessageAt).toLocaleString() : "—"}</td>
     <td>${group.lastSummaryAt ? new Date(group.lastSummaryAt).toLocaleString() : "尚未分析"}</td>
-    <td><div class="row-actions"><button class="small-button" data-observation-view="${group.groupId}">摘要</button><button class="small-button" data-observation-run="${group.groupId}">分析</button></div></td>
+    <td><div class="row-actions"><button class="small-button" data-observation-messages="${group.groupId}">消息</button><button class="small-button" data-observation-summaries="${group.groupId}">摘要</button><button class="small-button" data-observation-run="${group.groupId}">分析</button></div></td>
   </tr>`).join("");
 }
 
@@ -298,6 +299,19 @@ function connectEvents() {
   const query = state.token ? `?token=${encodeURIComponent(state.token)}` : "";
   state.eventSource = new EventSource(`/api/events${query}`);
   state.eventSource.addEventListener("log", (event) => pushLog(JSON.parse(event.data)));
+  state.eventSource.addEventListener("observation", scheduleObservationRefresh);
+}
+
+function scheduleObservationRefresh() {
+  clearTimeout(scheduleObservationRefresh.timer);
+  scheduleObservationRefresh.timer = setTimeout(async () => {
+    try {
+      renderObservation(await api("/api/observation"));
+      if (state.observationView?.type === "messages" && $("#observation-dialog").open) {
+        await loadObservationDialog("messages", state.observationView.groupId, false);
+      }
+    } catch (error) { showToast(error.message); }
+  }, 150);
 }
 
 async function loadDashboard() {
@@ -340,7 +354,10 @@ $("#refresh-button").addEventListener("click", () => refreshLiveData().then(() =
 $("#log-level").addEventListener("change", renderLogs);
 $("#clear-logs").addEventListener("click", () => { state.logs = []; renderLogs(); });
 $("#close-dialog").addEventListener("click", () => $("#session-dialog").close());
-$("#close-observation-dialog").addEventListener("click", () => $("#observation-dialog").close());
+$("#close-observation-dialog").addEventListener("click", () => {
+  state.observationView = null;
+  $("#observation-dialog").close();
+});
 $("#observation-all-groups").addEventListener("change", (event) => {
   $("#observation-groups").disabled = event.target.checked;
 });
@@ -383,20 +400,35 @@ async function runObservation(groupId = null) {
 }
 
 $("#run-observation").addEventListener("click", () => runObservation());
+
+async function loadObservationDialog(type, groupId, show = true) {
+  state.observationView = { type, groupId };
+  if (type === "messages") {
+    const data = await api(`/api/observation/groups/${groupId}/messages?limit=200`);
+    text("#observation-dialog-title", `群 ${groupId} · 最近消息`);
+    $("#observation-content").innerHTML = data.messages.length
+      ? data.messages.map((message) => `<article class="observed-message"><span>${new Date(message.timestamp).toLocaleString()} · ${escapeHtml(message.senderName)}</span>${escapeHtml(message.content)}</article>`).join("")
+      : '<p class="empty-state">这个群还没有保存的消息</p>';
+  } else {
+    const data = await api(`/api/observation/groups/${groupId}/summaries?limit=20`);
+    text("#observation-dialog-title", `群 ${groupId} · 分析摘要`);
+    $("#observation-content").innerHTML = data.summaries.length
+      ? data.summaries.map((summary) => `<article class="digest"><span>${new Date(summary.createdAt).toLocaleString()} · ${summary.messageCount} 条消息</span>${escapeHtml(summary.summary)}</article>`).join("")
+      : '<p class="empty-state">这个群还没有分析摘要</p>';
+  }
+  if (show) $("#observation-dialog").showModal();
+  $("#observation-content").scrollTop = $("#observation-content").scrollHeight;
+}
+
 $("#observation-rows").addEventListener("click", async (event) => {
   const runId = event.target.dataset.observationRun;
-  const viewId = event.target.dataset.observationView;
+  const messagesId = event.target.dataset.observationMessages;
+  const summariesId = event.target.dataset.observationSummaries;
   if (runId) await runObservation(runId);
-  if (viewId) {
-    try {
-      const data = await api(`/api/observation/groups/${viewId}/summaries?limit=20`);
-      text("#observation-dialog-title", `群 ${viewId} · 分析摘要`);
-      $("#observation-summaries").innerHTML = data.summaries.length
-        ? data.summaries.map((summary) => `<article class="digest"><span>${new Date(summary.createdAt).toLocaleString()} · ${summary.messageCount} 条消息</span>${escapeHtml(summary.summary)}</article>`).join("")
-        : '<p class="empty-state">这个群还没有分析摘要</p>';
-      $("#observation-dialog").showModal();
-    } catch (error) { showToast(error.message); }
-  }
+  try {
+    if (messagesId) await loadObservationDialog("messages", messagesId);
+    if (summariesId) await loadObservationDialog("summaries", summariesId);
+  } catch (error) { showToast(error.message); }
 });
 
 $("#chat-form").addEventListener("submit", (event) => {
